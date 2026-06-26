@@ -76,7 +76,26 @@ function decryptSafeStorage(b64, key) {
   }
 }
 
+function expiryMs(value) {
+  if (value == null) return Infinity; // no expiry field → don't treat as expired
+  if (typeof value === "string") {
+    const t = Date.parse(value);
+    return Number.isFinite(t) ? t : Infinity;
+  }
+  const n = Number(value);
+  if (!Number.isFinite(n)) return Infinity;
+  return n > 1e12 ? n : n * 1000; // seconds vs ms
+}
+
+// The token cache can hold SEVERAL entries (different sessions/scopes), and when
+// Claude rotates its token it may add a new entry while leaving the old one —
+// returning the first `claude_code` entry could hand back a stale, server-
+// invalidated token (→ 401 "登录过期" even though Claude is running). So collect
+// every entry across V2 + V1 and pick the best: not-expired first, then the
+// claude_code scope, then the furthest expiry.
 function extractCreds(config, key) {
+  const now = Date.now();
+  const candidates = [];
   for (const cacheKey of ["oauth:tokenCacheV2", "oauth:tokenCache"]) {
     const enc = config[cacheKey];
     if (typeof enc !== "string") continue;
@@ -90,19 +109,31 @@ function extractCreds(config, key) {
     }
     if (!cache || typeof cache !== "object") continue;
 
-    // Prefer the entry whose composite key includes the claude_code scope.
-    let fallback = null;
     for (const [compositeKey, value] of Object.entries(cache)) {
       if (!value || typeof value.token !== "string") continue;
-      const tier = value.subscriptionType || "";
-      if (compositeKey.includes("claude_code")) {
-        return { token: value.token, tier };
-      }
-      if (!fallback) fallback = { token: value.token, tier };
+      candidates.push({
+        token: value.token,
+        tier: value.subscriptionType || "",
+        isClaudeCode: compositeKey.includes("claude_code"),
+        expMs: expiryMs(value.expiresAt ?? value.expires_at),
+        v2: cacheKey === "oauth:tokenCacheV2"
+      });
     }
-    if (fallback) return fallback;
   }
-  return null;
+  if (candidates.length === 0) return null;
+
+  const SKEW_MS = 60 * 1000; // treat tokens expiring within a minute as expired
+  const fresh = candidates.filter((c) => c.expMs > now + SKEW_MS);
+  // Prefer a valid pool; if everything looks expired, still try the freshest.
+  const pool = fresh.length ? fresh : candidates;
+  pool.sort(
+    (a, b) =>
+      Number(b.isClaudeCode) - Number(a.isClaudeCode) ||
+      b.expMs - a.expMs ||
+      Number(b.v2) - Number(a.v2)
+  );
+  const best = pool[0];
+  return { token: best.token, tier: best.tier, expired: best.expMs <= now + SKEW_MS };
 }
 
 async function loadCreds() {
@@ -362,7 +393,7 @@ async function fetchAndStore(config, now) {
     }
 
     if (response.status === 401 || response.status === 403) {
-      return degraded("登录过期，请打开 Claude");
+      return degraded("登录已过期，请在 Claude 里重新登录");
     }
 
     if (response.status === 429) {
