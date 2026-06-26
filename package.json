@@ -1,6 +1,6 @@
 {
   "name": "ai-usage-widget",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Afterglow, a macOS desktop widget showing Codex and Claude usage windows in one place.",
   "main": "src/main.js",
   "scripts": {
@@ -63,5 +63,8 @@
       ],
       "window": { "width": 540, "height": 360 }
     }
+  },
+  "dependencies": {
+    "https-proxy-agent": "^7.0.6"
   }
 }

@@ -30,7 +30,9 @@ const DEFAULT_CONFIG = {
     claude: {
       enabled: true,
       showScoped: true,
-      minRefreshSeconds: 90
+      minRefreshSeconds: 90,
+      useSystemProxy: true,
+      extraRootCa: "auto"
     }
   }
 };

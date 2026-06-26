@@ -3,7 +3,9 @@ const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const https = require("node:https");
-const { execFile } = require("node:child_process");
+const tls = require("node:tls");
+const { execFile, execFileSync } = require("node:child_process");
+const { HttpsProxyAgent } = require("https-proxy-agent");
 
 // Port of Afterglow_Claude's UsageModel.swift.
 //
@@ -19,6 +21,8 @@ const CLAUDE_CONFIG_PATH = path.join(
   "Library/Application Support/Claude/config.json"
 );
 const USAGE_ENDPOINT = "https://api.anthropic.com/api/oauth/usage";
+let cachedExtraCa = undefined;
+let cachedProxy = undefined;
 
 // The safeStorage key is stable for the app's lifetime, so we read the
 // keychain at most once per process and cache the derived AES key in memory.
@@ -160,13 +164,15 @@ async function loadCreds() {
   throw new Error("Claude 登录信息为空（请重新登录 Claude）");
 }
 
-function fetchUsage(token) {
+function fetchUsage(token, config = {}) {
   return new Promise((resolve, reject) => {
     const req = https.request(
       USAGE_ENDPOINT,
       {
         method: "GET",
         timeout: 15000,
+        ca: requestCa(config),
+        agent: proxyAgent(config),
         headers: {
           Authorization: `Bearer ${token}`,
           "anthropic-beta": "oauth-2025-04-20",
@@ -184,6 +190,92 @@ function fetchUsage(token) {
     req.on("error", reject);
     req.end();
   });
+}
+
+function proxyAgent(config = {}) {
+  if (config.useSystemProxy === false) return undefined;
+  const proxy = configuredHttpProxy();
+  if (!proxy) return undefined;
+  return new HttpsProxyAgent(proxy.url);
+}
+
+function configuredHttpProxy() {
+  if (cachedProxy !== undefined) return cachedProxy;
+  cachedProxy = null;
+
+  const raw =
+    process.env.HTTPS_PROXY ||
+    process.env.https_proxy ||
+    process.env.HTTP_PROXY ||
+    process.env.http_proxy;
+  const fromEnv = parseHttpProxy(raw);
+  if (fromEnv) {
+    cachedProxy = fromEnv;
+    return cachedProxy;
+  }
+
+  try {
+    const out = execFileSync("/usr/sbin/scutil", ["--proxy"], {
+      timeout: 3000,
+      encoding: "utf8"
+    });
+    const enabled = /HTTPSEnable\s*:\s*1/.test(out) || /HTTPEnable\s*:\s*1/.test(out);
+    if (!enabled) return cachedProxy;
+    const host =
+      out.match(/HTTPSProxy\s*:\s*(.+)/)?.[1]?.trim() ||
+      out.match(/HTTPProxy\s*:\s*(.+)/)?.[1]?.trim();
+    const port =
+      out.match(/HTTPSPort\s*:\s*(\d+)/)?.[1] ||
+      out.match(/HTTPPort\s*:\s*(\d+)/)?.[1];
+    if (host && port) cachedProxy = { host, port: Number(port), url: `http://${host}:${port}` };
+  } catch {
+    cachedProxy = null;
+  }
+  return cachedProxy;
+}
+
+function parseHttpProxy(raw) {
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return {
+      host: url.hostname,
+      port: Number(url.port || (url.protocol === "https:" ? 443 : 80)),
+      url: url.toString()
+    };
+  } catch {
+    return null;
+  }
+}
+
+function requestCa(config = {}) {
+  if (config.extraRootCa === false || config.extraRootCa === "off") return undefined;
+  const extra = extraRootCa();
+  return extra ? [...tls.rootCertificates, extra] : undefined;
+}
+
+function extraRootCa() {
+  if (cachedExtraCa !== undefined) return cachedExtraCa;
+  cachedExtraCa = null;
+  try {
+    const pem = execFileSync(
+      "/usr/bin/security",
+      [
+        "find-certificate",
+        "-c",
+        "GlobalSign Root CA",
+        "-p",
+        "/System/Library/Keychains/SystemRootCertificates.keychain",
+        "/Library/Keychains/System.keychain"
+      ],
+      { timeout: 3000, encoding: "utf8" }
+    );
+    cachedExtraCa = pem.includes("BEGIN CERTIFICATE") ? pem : null;
+  } catch {
+    cachedExtraCa = null;
+  }
+  return cachedExtraCa;
 }
 
 function asNumber(value) {
@@ -390,13 +482,26 @@ async function fetchAndStore(config, now) {
 
     let response;
     try {
-      response = await fetchUsage(creds.token);
+      response = await fetchUsage(creds.token, config);
     } catch {
       return degraded("网络错误");
     }
 
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       return degraded("登录已过期，请在 Claude 里重新登录");
+    }
+
+    if (response.status === 403) {
+      let message = "Claude 接口拒绝访问";
+      try {
+        const parsed = JSON.parse(response.body);
+        if (/request not allowed/i.test(parsed?.error?.message || "")) {
+          message = "Claude 当前不允许读取用量接口";
+        }
+      } catch {
+        // Keep the generic 403 message when the response body is not JSON.
+      }
+      return degraded(message);
     }
 
     if (response.status === 429) {

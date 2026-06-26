@@ -38,6 +38,11 @@ macOS 常驻桌面小组件，在同一个小窗里**统一显示 Codex 与 Clau
 > 带抖动，尊重 `Retry-After`），退避结束并成功后清零；把启动 / 多显示器 / 渲染层的并发请求**合并为一次**
 > （单飞）。期间始终复用上次成功的数据并按**新鲜度**标橙 / 红（见下文「配色含义」），而不是报错清空。
 
+> **代理与证书**：Claude 接口会跟随环境变量里的 `HTTPS_PROXY` / `HTTP_PROXY`，若没有环境变量则自动读取
+> macOS「系统设置 → 网络」里的 HTTP/HTTPS 代理。少数 Node/Electron 证书链不完整的机器会自动补充系统里的
+> `GlobalSign Root CA`，避免把证书校验失败误报成 Claude 登录问题。需要关闭时可在配置里设置
+> `providers.claude.useSystemProxy=false` 或 `providers.claude.extraRootCa=false`。
+
 ### 换电脑后 Claude 不显示 / 排错
 
 Claude 这一行不再用模糊的「加载中…」掩盖错误——它会**直接显示具体原因**（大号档位整行可见，其它档位 hover 可见，状态点变红）：
@@ -121,7 +126,9 @@ npm run usage:once
     "claude": {
       "enabled": true,
       "showScoped": true,
-      "minRefreshSeconds": 90
+      "minRefreshSeconds": 90,
+      "useSystemProxy": true,
+      "extraRootCa": "auto"
     }
   }
 }
@@ -136,6 +143,8 @@ npm run usage:once
 - `providers.codex.live`：是否首选 `codex app-server` 实时账号用量（默认 `true`）；设 `false` 则只读会话日志。
 - `providers.claude.showScoped`：是否在占用后显示单模型周限额（如 `Sonnet`）。
 - `providers.claude.minRefreshSeconds`：Claude 网络请求的最小间隔（默认 90 秒；Codex 仍按 `refreshSeconds` 快刷新）。429 时还会在此基础上指数退避。
+- `providers.claude.useSystemProxy`：是否让 Claude 请求跟随环境变量或 macOS 系统 HTTP/HTTPS 代理（默认 `true`）。部分网络下直连会被拒绝，开启后与浏览器 / Claude 桌面端的网络路径一致。
+- `providers.claude.extraRootCa`：是否自动补充系统里的 `GlobalSign Root CA`（默认 `"auto"`；设 `false` 关闭），用于修复少数 Node/Electron 证书链校验失败。
 
 ## 打包成 App / 安装
 
@@ -147,7 +156,7 @@ npm run install:mac
 
 它会自动 `npm install` → 用 electron-builder 打包（arm64、ad-hoc 重签名）→
 **校验代码签名封口有效** → 安装到 `/Applications/余晖.app` 并启动。
-产物 `余晖-0.2.0-arm64.dmg` / `.zip` 同时生成在 `dist/`。
+产物 `余晖-0.2.1-arm64.dmg` / `.zip` 同时生成在 `dist/`。
 
 > 想在「访达」里双击运行安装，可执行一次：
 > `chmod +x scripts/install-mac.sh && cp scripts/install-mac.sh 安装余晖.command`，以后双击 `安装余晖.command` 即可。
@@ -161,9 +170,9 @@ npm run pack:mac    # 只生成未压缩的 .app（dist/mac-arm64/）
 
 ### 分发给别人（DMG 拖拽安装）
 
-把 `dist/余晖-0.2.0-arm64.dmg` 发给对方，对方：
+把 `dist/余晖-0.2.1-arm64.dmg` 发给对方，对方：
 
-1. 双击 `余晖-0.2.0-arm64.dmg`。
+1. 双击 `余晖-0.2.1-arm64.dmg`。
 2. 把 **余晖** 图标拖到旁边的 **Applications** 文件夹。
 3. 推出磁盘镜像。
 4. 打开「应用程序」，**右键** 余晖 →「打开」（第一次别直接双击）。弹窗里点「打开」。
