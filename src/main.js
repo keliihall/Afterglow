@@ -206,7 +206,6 @@ function updateConfig(patch) {
     const { x: nx, y: ny } = clampToWorkArea(win, x, y, h);
     win.setPosition(nx, ny, false);
   }
-  tray?.setContextMenu(buildTrayMenu());
   pushSnapshot();
   return next;
 }
@@ -346,15 +345,19 @@ const ready = gotSingleInstanceLock ? app.whenReady() : new Promise(() => {});
 ready.then(() => {
   app.setActivationPolicy("accessory");
   tray = new Tray(createTrayIcon());
-  tray.setContextMenu(buildTrayMenu());
+  // Left-click toggles the widget; right-click opens the menu (rebuilt each time
+  // so its checkmarks reflect the current settings). We deliberately do NOT call
+  // setContextMenu — on macOS that binds the menu to LEFT-click, which would
+  // collide with the toggle (a single click would both open the menu and
+  // hide/show the widget).
   tray.on("click", () => {
-    const shouldHide = visibleWindows().some((win) => win.isVisible());
-    if (shouldHide) {
+    if (visibleWindows().some((win) => win.isVisible())) {
       hideAllWidgets();
     } else {
       showAllWidgets();
     }
   });
+  tray.on("right-click", () => tray.popUpContextMenu(buildTrayMenu()));
 
   syncWindowsToDisplays();
   screen.on("display-added", syncWindowsToDisplays);
@@ -380,7 +383,6 @@ ipcMain.handle("config:get", () => loadConfig());
 ipcMain.handle("config:save", (_event, nextConfig) => {
   const saved = saveConfig(nextConfig);
   scheduleRefresh();
-  tray?.setContextMenu(buildTrayMenu());
   pushSnapshot();
   return saved;
 });
@@ -396,6 +398,5 @@ ipcMain.on("window:resize", (event, height) => {
 });
 ipcMain.handle("window:setAlwaysOnTop", (_event, enabled) => {
   setWidgetAlwaysOnTop(Boolean(enabled));
-  tray?.setContextMenu(buildTrayMenu());
   return alwaysOnTop;
 });
