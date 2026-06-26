@@ -147,7 +147,7 @@ npm run install:mac
 
 它会自动 `npm install` → 用 electron-builder 打包（arm64、ad-hoc 重签名）→
 **校验代码签名封口有效** → 安装到 `/Applications/余晖.app` 并启动。
-产物 `余晖-0.1.0-arm64.dmg` / `.zip` 同时生成在 `dist/`。
+产物 `余晖-0.2.0-arm64.dmg` / `.zip` 同时生成在 `dist/`。
 
 > 想在「访达」里双击运行安装，可执行一次：
 > `chmod +x scripts/install-mac.sh && cp scripts/install-mac.sh 安装余晖.command`，以后双击 `安装余晖.command` 即可。
@@ -161,9 +161,9 @@ npm run pack:mac    # 只生成未压缩的 .app（dist/mac-arm64/）
 
 ### 分发给别人（DMG 拖拽安装）
 
-把 `dist/余晖-0.1.0-arm64.dmg` 发给对方，对方：
+把 `dist/余晖-0.2.0-arm64.dmg` 发给对方，对方：
 
-1. 双击 `余晖-0.1.0-arm64.dmg`。
+1. 双击 `余晖-0.2.0-arm64.dmg`。
 2. 把 **余晖** 图标拖到旁边的 **Applications** 文件夹。
 3. 推出磁盘镜像。
 4. 打开「应用程序」，**右键** 余晖 →「打开」（第一次别直接双击）。弹窗里点「打开」。
