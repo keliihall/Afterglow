@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#241b3a"/>
+      <stop offset="0.45" stop-color="#3a2350"/>
+      <stop offset="0.7"  stop-color="#8a3b5c"/>
+      <stop offset="0.86" stop-color="#d9663f"/>
+      <stop offset="1"    stop-color="#f0b84d"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.72" r="0.5">
+      <stop offset="0"   stop-color="#ffd98a" stop-opacity="0.95"/>
+      <stop offset="0.5" stop-color="#f0b84d" stop-opacity="0.35"/>
+      <stop offset="1"   stop-color="#f0b84d" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="round">
+      <rect x="96" y="96" width="832" height="832" rx="190" ry="190"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#round)">
+    <rect x="96" y="96" width="832" height="832" fill="url(#sky)"/>
+    <rect x="96" y="430" width="832" height="500" fill="url(#glow)"/>
+    <!-- sun disc resting on the horizon -->
+    <circle cx="512" cy="700" r="150" fill="#fff1cf"/>
+    <circle cx="512" cy="700" r="150" fill="#f7c860" opacity="0.55"/>
+    <!-- horizon afterglow band -->
+    <rect x="96" y="690" width="832" height="22" fill="#ffe6a8" opacity="0.55"/>
+    <rect x="96" y="712" width="832" height="218" fill="#5a2f4a" opacity="0.45"/>
+  </g>
+  <rect x="96" y="96" width="832" height="832" rx="190" ry="190" fill="none" stroke="#ffffff" stroke-opacity="0.10" stroke-width="4"/>
+</svg>

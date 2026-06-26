@@ -1,0 +1,67 @@
+{
+  "name": "ai-usage-widget",
+  "version": "0.1.0",
+  "description": "Afterglow, a macOS desktop widget showing Codex and Claude usage windows in one place.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "usage:once": "node scripts/print-usage.js",
+    "icon": "bash scripts/make-icon.sh",
+    "pack:mac": "electron-builder --mac dir -c.electronDist=./node_modules/electron/dist -c.electronVersion=42.5.0",
+    "dist:mac": "electron-builder --mac -c.electronDist=./node_modules/electron/dist -c.electronVersion=42.5.0 && npm run verify:seal",
+    "verify:seal": "codesign --verify --deep --strict --verbose=2 \"dist/mac-arm64/余晖.app\"",
+    "install:mac": "bash scripts/install-mac.sh"
+  },
+  "keywords": [
+    "codex",
+    "claude",
+    "usage",
+    "macos",
+    "electron"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^42.5.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.local.ai-usage-widget",
+    "productName": "余晖",
+    "copyright": "© 2026",
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        { "target": "dmg", "arch": "arm64" },
+        { "target": "zip", "arch": "arm64" }
+      ],
+      "icon": "assets/icon.icns",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "type": "distribution",
+      "minimumSystemVersion": "12.0",
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "extendInfo": {
+        "LSUIElement": 1,
+        "LSMinimumSystemVersion": "12.0",
+        "NSHumanReadableCopyright": "© 2026"
+      }
+    },
+    "dmg": {
+      "title": "余晖 ${version}",
+      "writeUpdateInfo": false,
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "contents": [
+        { "x": 140, "y": 180, "type": "file" },
+        { "x": 400, "y": 180, "type": "link", "path": "/Applications" }
+      ],
+      "window": { "width": 540, "height": 360 }
+    }
+  }
+}

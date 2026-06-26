@@ -1,0 +1,311 @@
+:root {
+  color-scheme: light;
+  --glass: rgba(246, 247, 247, 0.78);
+  --line: rgba(38, 40, 42, 0.22);
+  --text: rgba(24, 25, 27, 0.78);
+  --muted: rgba(24, 25, 27, 0.42);
+  --track: rgba(26, 28, 30, 0.1);
+  --green: #35b872;
+  --amber: #d99a28;
+  --red: #d9544c;
+  --window-inset: 3px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  margin: 0;
+  padding: var(--window-inset);
+  overflow: hidden;
+  background: transparent;
+  color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+  user-select: none;
+}
+
+/* Card sizes to its content so the window can hug Codex + Claude together. */
+.shell {
+  width: 100%;
+  height: fit-content;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--glass);
+  background-clip: padding-box;
+  box-shadow: none;
+  backdrop-filter: blur(22px) saturate(1.5);
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  -webkit-app-region: drag;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--line);
+  pointer-events: none;
+}
+
+.providers {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 7px;
+}
+
+/* Divider between stacked sources. */
+.provider + .provider {
+  padding-top: 7px;
+  border-top: 1px solid var(--line);
+}
+
+/* Each source: brand column (logo + plan) on the left, metrics on the right. */
+.provider {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.brand {
+  flex: 0 0 auto;
+  width: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.side {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.pname {
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+/* Brand logo in place of the provider name — larger now that it has its own column. */
+.logo {
+  display: block;
+  width: auto;
+  height: 22px;
+}
+
+.logo--codex {
+  color: rgba(22, 24, 27, 0.86);
+}
+
+.logo--claude {
+  color: #c2603f;
+  height: 23px;
+}
+
+.plan {
+  font-size: 7px;
+  font-weight: 760;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.5px 3px;
+  line-height: 1;
+}
+
+/* The badge border (+ text) carries the status color, replacing the dot. */
+.plan.ok {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.plan.warn {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.plan.danger {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.plan.muted {
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.dot.ok {
+  background: var(--green);
+}
+
+.dot.warn {
+  background: var(--amber);
+}
+
+.dot.danger {
+  background: var(--red);
+}
+
+.dot.muted {
+  background: var(--muted);
+}
+
+.meter {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 16px 1fr 30px 50px;
+  align-items: center;
+  gap: 5px;
+}
+
+.meter + .meter {
+  margin-top: 4px;
+}
+
+.label,
+.value,
+.reset {
+  line-height: 1;
+  font-weight: 680;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.label {
+  color: var(--muted);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.value {
+  color: var(--text);
+  text-align: right;
+}
+
+/* Stale source (cached data, e.g. rate-limited): amber numbers say "a bit old"
+   without spelling it out — the reason is on hover. */
+.provider.stale .value,
+.provider.stale .reset {
+  color: var(--amber);
+}
+
+.reset {
+  color: var(--muted);
+  display: grid;
+  grid-template-columns: 11px 1fr;
+  align-items: center;
+  column-gap: 2px;
+  text-align: left;
+}
+
+.note {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.3;
+  padding: 1px 0;
+}
+
+.bar {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--track);
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  width: calc(var(--value) * 1%);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green);
+}
+
+.fill.warn {
+  background: var(--amber);
+}
+
+.fill.danger {
+  background: var(--red);
+}
+
+/* Top bar: app name on the left, clickable auto-refresh interval on the right. */
+.topbar {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 7px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.appname {
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.refresh {
+  -webkit-app-region: no-drag;
+  cursor: pointer;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.refresh:hover {
+  background: var(--track);
+  color: var(--text);
+}
+
+.refresh:active {
+  transform: translateY(0.5px);
+}
+
+.refresh.off {
+  opacity: 0.7;
+}
+
+.ricon {
+  font-size: 9px;
+  line-height: 1;
+}
