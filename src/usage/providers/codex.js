@@ -36,13 +36,15 @@ function windowFromLimit(id, label, limit) {
   };
 }
 
-// Codex's `/status` and tray show the ACCOUNT-wide 5h/weekly limit. But Codex
-// also writes separate per-model limit pools to the session logs — e.g.
-// "GPT-5.3-Codex-Spark" (limit_id "codex_bengalfox") — and those carry their own
-// near-empty windows. Picking the newest entry of ANY pool (the upstream
-// Afterglow_Codex behavior) means that while you're on a sub-model the widget
-// flips to that pool and shows a misleading ~100%. So we only ever track the
-// ACCOUNT pool, which is the one without a model-specific name.
+// Codex writes per-pool limit events to the session logs: the ACCOUNT-wide pool
+// (limit_id "codex", no model name) and separate per-model pools — e.g.
+// "GPT-5.3-Codex-Spark" (limit_id "codex_bengalfox"), which carry their own
+// near-empty windows. The number the user cares about (and that Codex's own
+// /status shows) is the ACCOUNT limit, so we always display the account pool.
+// Sub-model pools are misleading (~100% remaining) and are NOT shown as the
+// headline. While you work only on a sub-model, Codex stops emitting account
+// events, so the account figure legitimately stays put until the next
+// main-model turn — correct, just not advancing (see statusText for freshness).
 function isAccountPool(rateLimits) {
   if (!rateLimits) return false;
   if (rateLimits.limit_id && rateLimits.limit_id !== "codex") return false;
@@ -94,8 +96,8 @@ async function getCodexUsage(config) {
     });
   }
 
-  // Prefer the account-wide limit; fall back to the newest of any pool only if
-  // no account entry was ever recorded (older Codex builds, unusual setups).
+  // Prefer the ACCOUNT-wide limit (the number the user wants & Codex /status
+  // shows); fall back to the newest of any pool only if no account event exists.
   const latest = latestAccount || latestAny;
 
   if (!latest) {
@@ -117,11 +119,29 @@ async function getCodexUsage(config) {
   const secondary = latest.rateLimits.secondary;
   const lastUsage = latest.tokenInfo?.last_token_usage || null;
 
+  // 口径与新鲜度提示（hover 显示）：账号额仅在主模型轮次后更新；用子模型期间它保持
+  // 不变（数值正确、但不前进），此时提示"子模型使用中"，避免被误判为卡死。
+  const reached = latest.rateLimits.rate_limit_reached_type ? "已触限" : "正常";
+  const acctTime = new Date(latest.isoTimestamp).toLocaleTimeString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  });
+  const onSubmodel = latestAny && latestAccount && latestAny.ts > latestAccount.ts;
+  let statusText;
+  if (!latest.isAccount) {
+    statusText = `${reached} · ${latest.rateLimits.limit_name || "子模型"}`;
+  } else if (onSubmodel) {
+    statusText = `${reached} · 账号总额（更新于 ${acctTime}；子模型使用中暂不变化）`;
+  } else {
+    statusText = `${reached} · 账号总额（更新于 ${acctTime}）`;
+  }
+
   return {
     id: "codex",
     label: "Codex",
     status: "ok",
-    statusText: latest.rateLimits.rate_limit_reached_type ? "已触限" : "正常",
+    statusText,
     sourceType: "direct",
     source: latest.file,
     planType: latest.rateLimits.plan_type || null,
