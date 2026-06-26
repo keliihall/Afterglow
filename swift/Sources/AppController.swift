@@ -31,7 +31,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         win.contentViewController = hosting
         win.isOpaque = false
         win.backgroundColor = .clear
-        win.hasShadow = true
+        win.hasShadow = false
         win.isMovableByWindowBackground = true
         win.level = alwaysOnTop ? .screenSaver : .normal
         win.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]

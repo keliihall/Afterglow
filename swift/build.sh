@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 APP_NAME="余晖"
 BUNDLE_ID="com.local.afterglow-swift"
 EXEC_NAME="Afterglow"
-VERSION="0.2.0"
+VERSION="0.3.0"
 
 BUILD_DIR="build"
 APP="$BUILD_DIR/$APP_NAME.app"

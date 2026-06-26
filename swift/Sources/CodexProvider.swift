@@ -125,7 +125,7 @@ actor CodexProvider {
             proc.terminationHandler = { _ in finish(nil) }
             do { try proc.run() } catch { finish(nil); return }
             send(["jsonrpc": "2.0", "id": 1, "method": "initialize",
-                  "params": ["clientInfo": ["name": "afterglow", "version": "0.2.0"]]])
+                  "params": ["clientInfo": ["name": "afterglow", "version": "0.3.0"]]])
             DispatchQueue.global().asyncAfter(deadline: .now() + 15) { finish(nil) }
         }
     }
