@@ -321,6 +321,9 @@ function fromCache(status, statusText) {
     sourceType: "direct",
     source: USAGE_ENDPOINT,
     planType: lastGood.planType || null,
+    // Realtime only if the last attempt actually succeeded (a throttled-but-fresh
+    // read). After a failure this is cached/stale → drives the orange/red color.
+    realtime: lastAttemptOk,
     updatedAt: new Date(lastGood.at).toISOString(),
     fromCache: true,
     windows: lastGood.windows
@@ -427,6 +430,7 @@ async function fetchAndStore(config, now) {
       sourceType: "direct",
       source: USAGE_ENDPOINT,
       planType: creds.tier || null,
+      realtime: true, // fresh live read → green
       updatedAt: new Date(now).toISOString(),
       windows
     });

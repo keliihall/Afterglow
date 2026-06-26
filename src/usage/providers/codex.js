@@ -282,6 +282,7 @@ async function getCodexUsage(config) {
         source: "codex app-server · account/rateLimits/read",
         planType: live.planType,
         accountPool: true,
+        realtime: true, // live app-server reading → green
         updatedAt: new Date(live.at).toISOString(),
         windows: live.windows
       };
@@ -355,6 +356,7 @@ async function getCodexUsage(config) {
     source: latest.file,
     planType: latest.rateLimits.plan_type || null,
     accountPool: latest.isAccount,
+    realtime: false, // session-log fallback (非实时) → 颜色按数据新鲜度走橙/红
     updatedAt: latest.isoTimestamp,
     scannedFiles: files.length,
     lastUsage,

@@ -205,11 +205,18 @@ body {
   text-align: right;
 }
 
-/* Stale source (cached data, e.g. rate-limited): amber numbers say "a bit old"
-   without spelling it out — the reason is on hover. */
-.provider.stale .value,
-.provider.stale .reset {
+/* Freshness color on the numbers (and reset time), unified across sources:
+   orange = non-realtime / aging (Codex log fallback, Claude cached, ~6min+),
+   red = very stale (~30min+) or no data. Fresh data keeps the normal text color.
+   The reason is on hover (and the pmeta line in the large tier). */
+.provider.fresh-warn .value,
+.provider.fresh-warn .reset {
   color: var(--amber);
+}
+
+.provider.fresh-danger .value,
+.provider.fresh-danger .reset {
+  color: var(--red);
 }
 
 .reset {
@@ -321,8 +328,12 @@ body {
   white-space: normal;
 }
 
-.provider.stale .pmeta {
+.provider.fresh-warn .pmeta {
   color: var(--amber);
+}
+
+.provider.fresh-danger .pmeta {
+  color: var(--red);
 }
 
 /* ============ 小档：仅关键数字，最紧凑（隐藏顶栏/进度条/重置/套餐徽标，指标并排） ============ */

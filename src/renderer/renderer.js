@@ -41,6 +41,28 @@ function statusDotClass(status) {
   }
 }
 
+// Unified freshness color for BOTH sources, so the dot/badge + numbers tell you
+// at a glance whether the figure is current:
+//   green  = realtime & fresh
+//   orange = non-realtime (Codex log fallback / Claude cached) or aging
+//   red    = very stale, or no data (error / missing)
+// A short grace keeps a single transient blip from flickering the color.
+const FRESH_GRACE_MS = 2 * 60 * 1000; // non-realtime within this is still green
+const FRESH_AMBER_MS = 6 * 60 * 1000; // any data older than this → orange
+const FRESH_RED_MS = 30 * 60 * 1000; // data older than this → red
+
+function freshnessClass(provider) {
+  if (provider.status === "disabled") return "muted";
+  if (provider.status === "error" || provider.status === "missing") return "danger";
+  const at = Date.parse(provider.updatedAt);
+  if (!Number.isFinite(at)) return "ok"; // no timestamp → assume current
+  const age = Date.now() - at;
+  if (age >= FRESH_RED_MS) return "danger";
+  if (age >= FRESH_AMBER_MS) return "warn";
+  if (provider.realtime === false && age >= FRESH_GRACE_MS) return "warn";
+  return "ok";
+}
+
 function escapeHtml(value) {
   return String(value).replace(/[&<>"]/g, (ch) => {
     return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch];
@@ -71,12 +93,13 @@ function renderMeter(window) {
 }
 
 function renderProvider(provider) {
-  const status = statusDotClass(provider.status);
-  // The plan badge carries the status color on its border; with no plan (e.g.
-  // an error before we know the tier) fall back to a plain status dot.
+  // Color the dot/badge AND the numbers by data freshness (green/orange/red).
+  const fresh = freshnessClass(provider);
+  // The plan badge carries the freshness color on its border; with no plan (e.g.
+  // an error before we know the tier) fall back to a plain colored dot.
   const badge = provider.planType
-    ? `<span class="plan ${status}">${escapeHtml(provider.planType)}</span>`
-    : `<span class="dot ${status}"></span>`;
+    ? `<span class="plan ${fresh}">${escapeHtml(provider.planType)}</span>`
+    : `<span class="dot ${fresh}"></span>`;
 
   // Always show the 5h/1w rows. Rather than spelling out an error in words, the
   // state is conveyed by color: a stale source (cached data, e.g. rate-limited)
@@ -89,7 +112,6 @@ function renderProvider(provider) {
       { id: "1w", label: "1w", status: "missing" }
     ];
   }
-  const stale = provider.status === "stale";
   const title = provider.statusText ? ` title="${escapeHtml(provider.statusText)}"` : "";
   // 详情行（仅"大"档显示）：状态/口径/新鲜度文案，平时只在 hover 出现。
   const meta = provider.statusText
@@ -97,7 +119,7 @@ function renderProvider(provider) {
     : "";
 
   return `
-    <section class="provider${stale ? " stale" : ""}"${title}>
+    <section class="provider fresh-${fresh}"${title}>
       <div class="brand">
         ${providerLogo(provider)}
         ${badge}
@@ -139,7 +161,10 @@ function renderRefresh(snapshot) {
   drawRefresh();
 }
 
+let lastSnapshot = null;
+
 function renderSnapshot(snapshot) {
+  if (snapshot) lastSnapshot = snapshot;
   // 档位驱动 CSS：小/中/大。默认中。
   document.body.dataset.size = snapshot?.size || "medium";
   const providers = Array.isArray(snapshot?.providers) ? snapshot.providers : [];
@@ -170,3 +195,9 @@ async function refresh() {
 
 window.usageWidget.onSnapshot(renderSnapshot);
 refresh();
+
+// Re-apply the last snapshot periodically so the freshness colors keep aging
+// (green → orange → red) even when no new data arrives between refreshes.
+setInterval(() => {
+  if (lastSnapshot) renderSnapshot(lastSnapshot);
+}, 30 * 1000);
