@@ -93,7 +93,7 @@ npm start
 
 （单次抖动有约 2 分钟宽限，不会闪色；没有订阅徽标时回退为一个同色状态圆点。）
 进度条颜色另按**剩余量**走：绿（充足）→ 黄（≤35%）→ 红（≤15%）。
-菜单栏图标是一枚随浅色 / 深色菜单栏自动适配的「余晖」落日线条图标。
+菜单栏图标是一枚随浅色 / 深色菜单栏自动适配的「余晖光晕」圆环图标（与 App 图标的发光圆盘呼应）。
 
 ## 快速检查采集结果
 
@@ -188,8 +188,18 @@ npm run pack:mac    # 只生成未压缩的 .app（dist/mac-arm64/）
 
 ### 换图标
 
-App 图标在 `assets/icon.icns`（落日余晖主题，由 `assets/icon.svg` 生成）。改了 SVG 后重建：
+两个图标是成套的「余晖光晕」主题：
 
-```bash
-npm run icon       # 用系统自带 qlmanage/sips/iconutil 重新生成 icon.icns
-```
+- **App 图标** `assets/icon.icns`（深暮色方角 + 暖色发光圆盘），由 `assets/icon.svg` 生成。改了 SVG 后重建：
+
+  ```bash
+  npm run icon       # 用系统自带 qlmanage/sips/iconutil 重新生成 icon.icns
+  ```
+
+- **菜单栏图标** 是一枚自适应明暗的圆环（光晕的轮廓），由 `scripts/make-tray-icon.js` 用纯 Node
+  栅格化为透明 PNG，并以 base64 内嵌在 `src/main.js` 的 `createTrayIcon()`。改了它的几何参数后：
+
+  ```bash
+  node scripts/make-tray-icon.js          # 打印新的 base64，粘进 main.js 的 TRAY_ICON
+  node scripts/make-tray-icon.js out.png  # 另存一张 PNG 方便预览
+  ```

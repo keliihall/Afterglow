@@ -41,12 +41,12 @@ let refreshTimer;
 let widgetsVisible = true;
 
 function createTrayIcon() {
-  // Monochrome line-art "afterglow" glyph — a sun on the horizon with three
-  // rays. A genuinely transparent RGBA PNG (rasterized + encoded ourselves;
-  // qlmanage/Quick Look only makes opaque thumbnails, which render as a solid
-  // square), embedded inline so loading can never fail. Template image so
-  // macOS tints it for the light/dark menu bar and the selected (blue) state.
-  const TRAY_ICON = "iVBORw0KGgoAAAANSUhEUgAAACQAAAAkCAYAAADhAJiYAAABU0lEQVR42u2UP2oCQRjFF0whQhqLbLG1ggfYIuWewQsIFum9hI2Cp5CATSAHSG2RkEL2Av4hFtaCheNbeAPDsM7smInZYh78mp3ve9/b2Z2JoqCgoCBntcGItOsQqAhyJqM6BJoAQSYh0H8HegJNj4Ga9LxJL2AFXkHsIVBMrxW9ndQCS2XQmyFUlUAxPWTdkjOcNAYnS6hGybFvWMKc6O2sRzC7EioBQ/AOcrAmOZ8NWVMWZkbvyGeob+6IuMKZNV7DmEIJbdAPMdV4CaOGWmhDNmAKMtAjGZ9ttNqFzzCFnsFeGfABUkN9yhpZv6eHFz2AuWL+CToV+jqslX1zev1axafY0vQI+g69ffYIevRuCVAc167CQHnLL36ObkVS9sj+gbae2MJkvEt2GtLwULJm46D062s5ZxpvZ3FnxlV2aHsnrDtU9g/9JUkUFBQUVDNdAEfK3cVz5LWgAAAAAElFTkSuQmCC";
+  // Monochrome "afterglow" ring (the orb outline — matches the app icon). A
+  // genuinely transparent RGBA PNG, rasterized + encoded ourselves (qlmanage
+  // only makes opaque thumbnails, which render as a solid square), embedded
+  // inline so loading can't fail. Template image → macOS tints it for the
+  // light/dark menu bar and the selected (blue) state. See scripts/make-tray-icon.js.
+  const TRAY_ICON = "iVBORw0KGgoAAAANSUhEUgAAACQAAAAkCAYAAADhAJiYAAABQElEQVR42u2XPQqDQBCFDVikstHCQE5gm9bOC3gbD+E5UkcscwfrFDmBIHqCkLzAE8IywZ81yQR88DXLzuzozs7sOs6qVb/VBnggJB7HvqotOIAMlKACF1JxLOOc7ScDcUECCtCC+wAt5ya0XVQ+yEE3IhCTjrb+UsHswOnNYjdQgyupOSbNPdGX9Z+RgmnAEaQgAnsScezIOVJQvk3O5ILTM4gH8sLlnLNgn8/NqUTImeeXBxN8BLQxcyqZc7QL4c8EMz4sEP5UMbUkHIyj3XAL5io2cqrlGqOVCVvlWtYwc+uyKe2gNI52ukD5SI2SUI5tMx5bQG9Y8zjbKqKv3m/FtQYVsi/1hlfWGFvt6av3e+Fa/xeQui1Tl9Tqjr3KwqiudahrriqvH+ouaCqvsCov+SqfQSofimqf0qtWveoB5HgMmN+EddEAAAAASUVORK5CYII=";
   const image = nativeImage.createFromBuffer(Buffer.from(TRAY_ICON, "base64"), { scaleFactor: 2 });
   image.setTemplateImage(true);
   return image;

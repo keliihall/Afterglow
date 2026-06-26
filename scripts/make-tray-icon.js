@@ -14,30 +14,13 @@ const zlib = require("node:zlib");
 const fs = require("node:fs");
 
 const S = 36; // 36px == 18pt @2x (createFromBuffer scaleFactor: 2)
-const HW = 1.55; // stroke half-width (px)
+const HW = 1.95; // ring stroke half-width (px) — bold, fills the menu bar confidently
 
-// Glyph: a sun on the horizon with three rays, in 36px space.
-const cx = 18, cy = 25.5, R = 8;
-const segs = [
-  [5, 25.5, 31, 25.5], // horizon
-  [18, 15, 18, 9], // top ray
-  [11.7, 18.6, 7.7, 14.6], // up-left ray
-  [24.3, 18.6, 28.3, 14.6] // up-right ray
-];
+// Glyph: a bold "afterglow" ring (the orb outline — matches the app icon).
+const cx = 18, cy = 18, R = 11;
 
-function distSeg(px, py, x1, y1, x2, y2) {
-  const vx = x2 - x1, vy = y2 - y1;
-  const t = Math.max(0, Math.min(1, ((px - x1) * vx + (py - y1) * vy) / (vx * vx + vy * vy)));
-  return Math.hypot(px - (x1 + t * vx), py - (y1 + t * vy));
-}
-function distArc(px, py) { // upper semicircle
-  const dx = px - cx, dy = py - cy;
-  if (dy <= 0) return Math.abs(Math.hypot(dx, dy) - R);
-  return Math.min(Math.hypot(px - (cx - R), py - cy), Math.hypot(px - (cx + R), py - cy));
-}
 function coverage(px, py) {
-  let d = distArc(px, py);
-  for (const s of segs) d = Math.min(d, distSeg(px, py, ...s));
+  const d = Math.abs(Math.hypot(px - cx, py - cy) - R); // signed distance to the ring
   return Math.max(0, Math.min(1, HW - d + 0.5));
 }
 
