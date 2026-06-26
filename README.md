@@ -38,6 +38,25 @@ macOS 常驻桌面小组件，在同一个小窗里**统一显示 Codex 与 Clau
 > 带抖动，尊重 `Retry-After`），退避结束并成功后清零；把启动 / 多显示器 / 渲染层的并发请求**合并为一次**
 > （单飞）。期间始终复用上次成功的数据并标记为**偏旧**（橙色数字 + 黄点），而不是报错清空。
 
+### 换电脑后 Claude 不显示 / 排错
+
+Claude 这一行不再用模糊的「加载中…」掩盖错误——它会**直接显示具体原因**（大号档位整行可见，其它档位 hover 可见，状态点变红）：
+
+| 显示 | 原因 | 解决 |
+|------|------|------|
+| `未检测到 Claude 桌面端（请先安装并登录）` | 本机没有 `~/Library/Application Support/Claude/config.json` | 安装并登录 Claude 桌面应用 |
+| `未检测到 Claude 密钥…` | 钥匙串里没有 `Claude Safe Storage` | 打开一次 Claude 桌面应用让它生成密钥 |
+| `钥匙串访问被拒绝（首次启动请在弹窗点"始终允许"）` | 首次读取 `Claude Safe Storage` 的授权框被拒绝/忽略 | 重新刷新或重启 App，在弹窗点**始终允许** |
+| `登录过期，请打开 Claude` | 令牌过期且 Claude 未运行 | 打开 Claude 桌面应用让它续期 |
+| `请求过于频繁(429)` | 触发限流 | 自动退避，稍候即恢复 |
+
+在新电脑上可先用这条命令自查（终端里运行，会复用上面的逻辑）：
+
+```bash
+ls "$HOME/Library/Application Support/Claude/config.json"   # 是否安装并登录了 Claude
+security find-generic-password -s "Claude Safe Storage" -w  # 钥匙串能否读取（首次会弹授权框 → 始终允许）
+```
+
 ## 运行
 
 ```bash

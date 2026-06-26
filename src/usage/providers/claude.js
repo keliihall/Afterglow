@@ -32,9 +32,14 @@ function getKeychainPassword() {
       "/usr/bin/security",
       ["find-generic-password", "-s", "Claude Safe Storage", "-w"],
       { timeout: 10000 },
-      (error, stdout) => {
+      (error, stdout, stderr) => {
         if (error) {
-          reject(new Error("无法读取钥匙串 (Claude Safe Storage)"));
+          // Distinguish "Claude never created the key here" from "the user hasn't
+          // allowed us to read it yet" — they need different actions.
+          const msg = /could not be found|SecItemNotFound/i.test(stderr || "")
+            ? "未检测到 Claude 密钥（请先安装并登录 Claude 桌面端）"
+            : "钥匙串访问被拒绝（首次启动请在弹窗点“始终允许”）";
+          reject(new Error(msg));
           return;
         }
         resolve(stdout.replace(/\n$/, ""));
@@ -105,17 +110,23 @@ async function loadCreds() {
   try {
     config = JSON.parse(fs.readFileSync(CLAUDE_CONFIG_PATH, "utf8"));
   } catch {
-    return null;
+    // No Claude config on this machine at all — the desktop app isn't installed
+    // or has never been signed in. Throw a clear, actionable reason rather than
+    // a generic null so the widget can show *why* instead of "加载中…".
+    throw new Error("未检测到 Claude 桌面端（请先安装并登录）");
   }
 
-  let key = await derivedKey();
+  let key = await derivedKey(); // keychain errors propagate with their own message
   let creds = extractCreds(config, key);
   if (creds) return creds;
 
   // Cached key may be stale (app reinstalled / key rotated) — refresh once.
   cachedAesKey = null;
   key = await derivedKey();
-  return extractCreds(config, key);
+  creds = extractCreds(config, key);
+  if (creds) return creds;
+
+  throw new Error("Claude 登录信息为空（请重新登录 Claude）");
 }
 
 function fetchUsage(token) {
@@ -260,6 +271,7 @@ let consecutiveOk = 0; // 连续成功次数，驱动间隔回探
 let adaptiveMinMs = 0; // 当前自适应最小读取间隔（>= floorMs），跨成功保留
 let floorMs = DEFAULT_MIN_REFRESH_SECONDS * 1000; // 配置给定的间隔下限（每次调用刷新）
 let inFlight = null; // shared promise while a request is in progress
+let lastErrorText = null; // reason of the last failed attempt; shown instead of "加载中…" when there's no cache yet
 
 // 单次抖动不变色：连续失败未达阈值时仍以"正常(ok)"呈现缓存数据，达到阈值才转"陈旧(stale=琥珀)"。
 function colorStatus() {
@@ -288,6 +300,7 @@ function fromCache(status, statusText) {
 // The UI shows staleness via amber numbers + the badge color, so statusText
 // stays short — it's only surfaced on hover.
 function degraded(statusText) {
+  lastErrorText = statusText; // so the throttle gate can show *why*, not "加载中…"
   if (lastGood && Date.now() - lastGood.at < STALE_MAX_MS) {
     // 单次失败不变色：未达连续失败阈值时仍显示为正常(ok)，仅 hover 文案提示原因。
     return fromCache(colorStatus(), statusText);
@@ -341,13 +354,6 @@ async function fetchAndStore(config, now) {
       return degraded(error.message || "读取失败");
     }
 
-    if (!creds) {
-      if (lastGood && now - lastGood.at < STALE_MAX_MS) {
-        return fromCache(colorStatus(), "未找到 Claude 登录信息");
-      }
-      return provider({ status: "missing", statusText: "未找到 Claude 登录信息", windows: missingWindows() });
-    }
-
     let response;
     try {
       response = await fetchUsage(creds.token);
@@ -379,6 +385,7 @@ async function fetchAndStore(config, now) {
     // 间隔，仅在连续多次成功后小幅回探（见 finally），避免"成功即恢复 90s → 立刻又 429"。
     consecutive429 = 0;
     nextAllowedAt = 0;
+    lastErrorText = null;
     const windows = parseUsage(payload, { showScoped });
     lastGood = { windows, planType: creds.tier || null, at: now };
     ok = true;
@@ -436,7 +443,13 @@ async function getClaudeUsage(config = {}) {
     if (lastGood) {
       return fromCache(lastAttemptOk ? "ok" : colorStatus(), lastAttemptOk ? "正常" : "数据偏旧");
     }
-    return provider({ status: "missing", statusText: "加载中…", windows: missingWindows() });
+    // No good data yet. If the last attempt already failed, surface WHY (e.g.
+    // "未检测到 Claude 桌面端" / "钥匙串访问被拒绝") instead of a perpetual
+    // "加载中…"; only show the loading placeholder while the first fetch is
+    // genuinely still in flight.
+    return lastErrorText
+      ? provider({ status: "error", statusText: lastErrorText, windows: missingWindows() })
+      : provider({ status: "missing", statusText: "加载中…", windows: missingWindows() });
   }
 
   // 3) Single-flight: collapse concurrent cold calls (launch / multi-display /
