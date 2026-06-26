@@ -17,30 +17,16 @@ let refreshTimer;
 let widgetsVisible = true;
 
 function createTrayIcon() {
-  // A monochrome "afterglow" glyph — half-sun setting on the horizon with three
-  // rays. Shipped as a black-on-transparent PNG (+ @2x) and flagged as a
-  // template image so macOS tints it for the light/dark menu bar (and the
-  // selected/blue state) itself. PNG is more reliable in the tray than an SVG
-  // data URL; fall back to an inline SVG if the asset can't be loaded.
-  const iconPath = path.join(__dirname, "..", "assets", "trayTemplate.png");
-  let image = nativeImage.createFromPath(iconPath);
-  if (image.isEmpty()) {
-    const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
-        <g fill="#000" stroke="#000" stroke-linecap="round">
-          <path d="M9 31 A13 13 0 0 1 35 31 Z" stroke="none"/>
-          <rect x="3.5" y="29.7" width="37" height="3.2" rx="1.6" stroke="none"/>
-          <line x1="22" y1="16.5" x2="22" y2="9" stroke-width="3.1"/>
-          <line x1="11.4" y1="21.4" x2="6.2" y2="16.2" stroke-width="3.1"/>
-          <line x1="32.6" y1="21.4" x2="37.8" y2="16.2" stroke-width="3.1"/>
-        </g>
-      </svg>`;
-    image = nativeImage.createFromDataURL(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
-  }
+  // Monochrome line-art "afterglow" glyph — a sun on the horizon with three
+  // rays. A genuinely transparent RGBA PNG (rasterized + encoded ourselves;
+  // qlmanage/Quick Look only makes opaque thumbnails, which render as a solid
+  // square), embedded inline so loading can never fail. Template image so
+  // macOS tints it for the light/dark menu bar and the selected (blue) state.
+  const TRAY_ICON = "iVBORw0KGgoAAAANSUhEUgAAACQAAAAkCAYAAADhAJiYAAABU0lEQVR42u2UP2oCQRjFF0whQhqLbLG1ggfYIuWewQsIFum9hI2Cp5CATSAHSG2RkEL2Av4hFtaCheNbeAPDsM7smInZYh78mp3ve9/b2Z2JoqCgoCBntcGItOsQqAhyJqM6BJoAQSYh0H8HegJNj4Ga9LxJL2AFXkHsIVBMrxW9ndQCS2XQmyFUlUAxPWTdkjOcNAYnS6hGybFvWMKc6O2sRzC7EioBQ/AOcrAmOZ8NWVMWZkbvyGeob+6IuMKZNV7DmEIJbdAPMdV4CaOGWmhDNmAKMtAjGZ9ttNqFzzCFnsFeGfABUkN9yhpZv6eHFz2AuWL+CToV+jqslX1zev1axafY0vQI+g69ffYIevRuCVAc167CQHnLL36ObkVS9sj+gbae2MJkvEt2GtLwULJm46D062s5ZxpvZ3FnxlV2aHsnrDtU9g/9JUkUFBQUVDNdAEfK3cVz5LWgAAAAAElFTkSuQmCC";
+  const image = nativeImage.createFromBuffer(Buffer.from(TRAY_ICON, "base64"), { scaleFactor: 2 });
   image.setTemplateImage(true);
   return image;
 }
-
 const PANEL_WIDTH = 212;
 const WINDOW_INSET = 3;
 const WINDOW_WIDTH = PANEL_WIDTH + WINDOW_INSET * 2;
