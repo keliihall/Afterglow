@@ -237,17 +237,34 @@ function parseUsage(obj, { showScoped }) {
 //   * coalesce concurrent callers (launch / multi-display / renderer) into a
 //     single in-flight request;
 //   * on any failure keep showing the last good numbers as "stale" (amber).
-const DEFAULT_MIN_REFRESH_SECONDS = 90;
+const DEFAULT_MIN_REFRESH_SECONDS = 120; // 起始下限：高于 90s 以贴近账号可持续读取速率
 const STALE_MAX_MS = 30 * 60 * 1000; // keep showing cached data for up to 30 min
 const BACKOFF_BASE_MS = 60 * 1000; // backoff after the first 429
 const BACKOFF_CAP_MS = 15 * 60 * 1000; // max spacing between 429 retries
+
+// 自适应节流：429 后增大间隔并【跨成功保留】，多次成功后才小幅回探，使读取频率
+// 收敛到刚好高于服务端（与 Claude 桌面端共享的）可持续速率，消除"成功/429"来回抖动。
+const ADAPTIVE_GROW = 1.6; // 每次 429 间隔放大系数
+const ADAPTIVE_DECAY = 0.9; // 连续多次成功后小幅回探系数
+const DECAY_AFTER_OK = 3; // 连续成功多少次才回探一次
+// 仅当【连续】读取失败达到该次数才把数字显示为陈旧(琥珀)；单次抖动仍按正常色显示缓存值。
+const STALE_AMBER_AFTER_FAILURES = 2;
 
 let lastGood = null; // { windows, planType, at } — last successful reading
 let lastAttemptAt = 0; // last network attempt (success or failure)
 let lastAttemptOk = false; // did the last attempt succeed?
 let nextAllowedAt = 0; // earliest next attempt after a 429 backoff
 let consecutive429 = 0; // consecutive 429 count, drives the backoff
+let consecutiveFailures = 0; // 连续读取失败次数（任何失败）；成功清零，驱动颜色规则
+let consecutiveOk = 0; // 连续成功次数，驱动间隔回探
+let adaptiveMinMs = 0; // 当前自适应最小读取间隔（>= floorMs），跨成功保留
+let floorMs = DEFAULT_MIN_REFRESH_SECONDS * 1000; // 配置给定的间隔下限（每次调用刷新）
 let inFlight = null; // shared promise while a request is in progress
+
+// 单次抖动不变色：连续失败未达阈值时仍以"正常(ok)"呈现缓存数据，达到阈值才转"陈旧(stale=琥珀)"。
+function colorStatus() {
+  return consecutiveFailures >= STALE_AMBER_AFTER_FAILURES ? "stale" : "ok";
+}
 
 function provider(extra) {
   return { id: "claude", label: "Claude", ...extra };
@@ -272,7 +289,8 @@ function fromCache(status, statusText) {
 // stays short — it's only surfaced on hover.
 function degraded(statusText) {
   if (lastGood && Date.now() - lastGood.at < STALE_MAX_MS) {
-    return fromCache("stale", statusText);
+    // 单次失败不变色：未达连续失败阈值时仍显示为正常(ok)，仅 hover 文案提示原因。
+    return fromCache(colorStatus(), statusText);
   }
   return provider({ status: "error", statusText, windows: [] });
 }
@@ -296,6 +314,8 @@ function retryAfterMs(headers) {
 // the Claude desktop app's own polling of the same endpoint.
 function applyBackoff(now, headers) {
   consecutive429 += 1;
+  // 跨成功保留地放大读取间隔，使稳态读取频率收敛到服务端可持续速率之上。
+  adaptiveMinMs = Math.min(BACKOFF_CAP_MS, Math.max(adaptiveMinMs, floorMs) * ADAPTIVE_GROW);
   const base = Math.min(BACKOFF_CAP_MS, BACKOFF_BASE_MS * 2 ** (consecutive429 - 1));
   const jittered = base / 2 + Math.random() * (base / 2);
   nextAllowedAt = now + Math.max(jittered, retryAfterMs(headers));
@@ -307,6 +327,9 @@ function applyBackoff(now, headers) {
 // outcome rather than a transient "in progress" one.
 async function fetchAndStore(config, now) {
   lastAttemptAt = now;
+  // 先按"失败"预记一次（含当前在途读取）；成功时在 finally 清零。这样当前这次失败
+  // 也计入连续失败数，使"连续 2 次失败才变色"的判定即时且精确。
+  consecutiveFailures += 1;
   let ok = false;
   try {
     const showScoped = config.showScoped !== false;
@@ -320,7 +343,7 @@ async function fetchAndStore(config, now) {
 
     if (!creds) {
       if (lastGood && now - lastGood.at < STALE_MAX_MS) {
-        return fromCache("stale", "未找到 Claude 登录信息");
+        return fromCache(colorStatus(), "未找到 Claude 登录信息");
       }
       return provider({ status: "missing", statusText: "未找到 Claude 登录信息", windows: missingWindows() });
     }
@@ -352,7 +375,8 @@ async function fetchAndStore(config, now) {
       return degraded(`数据读取失败(${response.status})`);
     }
 
-    // Success: clear the backoff and refresh the cache.
+    // Success: clear the 429 backoff. 注意：不再把读取间隔重置到最小值——保留自适应
+    // 间隔，仅在连续多次成功后小幅回探（见 finally），避免"成功即恢复 90s → 立刻又 429"。
     consecutive429 = 0;
     nextAllowedAt = 0;
     const windows = parseUsage(payload, { showScoped });
@@ -370,6 +394,17 @@ async function fetchAndStore(config, now) {
     });
   } finally {
     lastAttemptOk = ok;
+    if (ok) {
+      consecutiveFailures = 0; // 清除入口处的预记失败
+      // 连续多次成功后才小幅回探更快的间隔；若回探后又 429，applyBackoff 会再放大。
+      consecutiveOk += 1;
+      if (consecutiveOk >= DECAY_AFTER_OK) {
+        adaptiveMinMs = Math.max(floorMs, (adaptiveMinMs || floorMs) * ADAPTIVE_DECAY);
+        consecutiveOk = 0;
+      }
+    } else {
+      consecutiveOk = 0; // 失败已在入口处预记，这里不再重复累加
+    }
   }
 }
 
@@ -379,25 +414,27 @@ async function getClaudeUsage(config = {}) {
   }
 
   const minRefreshSeconds = Number(config.minRefreshSeconds);
-  const minRefreshMs =
+  floorMs =
     (Number.isFinite(minRefreshSeconds)
       ? Math.max(0, minRefreshSeconds)
       : DEFAULT_MIN_REFRESH_SECONDS) * 1000;
+  // 自适应间隔不低于配置下限；首次或调小配置时同步抬升。
+  if (!adaptiveMinMs || adaptiveMinMs < floorMs) adaptiveMinMs = floorMs;
   const now = Date.now();
 
   // 1) Backoff gate: after a 429, don't touch the network until nextAllowedAt —
-  //    keep showing the cached numbers as stale (amber) in the meantime.
+  //    期间显示缓存值；是否变琥珀由 colorStatus()（连续失败次数）决定。
   if (now < nextAllowedAt) {
     return lastGood && now - lastGood.at < STALE_MAX_MS
-      ? fromCache("stale", "请求过于频繁，已自动降低刷新")
+      ? fromCache(colorStatus(), "请求过于频繁，已自动降低刷新")
       : degraded("请求过于频繁(429)");
   }
 
-  // 2) Throttle gate: at most one network ATTEMPT per minRefreshSeconds. Inside
-  //    the window, serve the cache (or a loading placeholder before first data).
-  if (lastAttemptAt && now - lastAttemptAt < minRefreshMs) {
+  // 2) Throttle gate: 至多每 adaptiveMinMs 发起一次网络读取；窗口内提供缓存
+  //    （首次出数据前显示加载占位）。
+  if (lastAttemptAt && now - lastAttemptAt < adaptiveMinMs) {
     if (lastGood) {
-      return fromCache(lastAttemptOk ? "ok" : "stale", lastAttemptOk ? "正常" : "数据偏旧");
+      return fromCache(lastAttemptOk ? "ok" : colorStatus(), lastAttemptOk ? "正常" : "数据偏旧");
     }
     return provider({ status: "missing", statusText: "加载中…", windows: missingWindows() });
   }
