@@ -32,9 +32,11 @@ macOS 常驻桌面小组件，在同一个小窗里**统一显示 Codex 与 Clau
 > **首次刷新会弹一次钥匙串授权框**（读取 `Claude Safe Storage`），点「始终允许 / Always Allow」后不再询问。
 > 钥匙串密钥每次启动只读一次并在内存缓存，后续刷新只重读 config.json，不会反复弹窗。
 
-> **限流与缓存**：`/api/oauth/usage` 有速率限制。插件会把 Claude 的网络请求节流到
-> 最快每 `minRefreshSeconds`（默认 45 秒）一次，期间复用上次结果；遇到 429 / 网络错误时
-> 会继续显示**上次成功的数据并标记为偏旧**（黄点），而不是直接报错清空。
+> **限流与缓存**：`/api/oauth/usage` 走 Cloudflare、有速率限制，且与 Claude 桌面端 / Claude Code
+> 共用同一账号配额。为此插件会：把 Claude 网络请求节流到最快每 `minRefreshSeconds`（默认 90 秒）
+> 一次、且锚定「上次尝试」（无论成败都按此间隔）；遇到 **429 时指数退避**（约 60s→2m→4m…封顶 15min，
+> 带抖动，尊重 `Retry-After`），退避结束并成功后清零；把启动 / 多显示器 / 渲染层的并发请求**合并为一次**
+> （单飞）。期间始终复用上次成功的数据并标记为**偏旧**（橙色数字 + 黄点），而不是报错清空。
 
 ## 运行
 
@@ -86,7 +88,7 @@ npm run usage:once
     "claude": {
       "enabled": true,
       "showScoped": true,
-      "minRefreshSeconds": 45
+      "minRefreshSeconds": 90
     }
   }
 }
@@ -98,7 +100,7 @@ npm run usage:once
 - `display`：`"all"` / `"codex"` / `"claude"`，对应菜单里的「显示内容」。
 - `providers.<name>.enabled`：彻底关闭某个数据源（即使在「全部显示」下也不显示）。
 - `providers.claude.showScoped`：是否在占用后显示单模型周限额（如 `Sonnet`）。
-- `providers.claude.minRefreshSeconds`：Claude 网络请求的最小间隔（节流，缓解限流）。
+- `providers.claude.minRefreshSeconds`：Claude 网络请求的最小间隔（默认 90 秒；Codex 仍按 `refreshSeconds` 快刷新）。429 时还会在此基础上指数退避。
 
 ## 打包成 App / 安装
 

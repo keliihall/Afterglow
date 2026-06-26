@@ -24,7 +24,7 @@ const DEFAULT_CONFIG = {
     claude: {
       enabled: true,
       showScoped: true,
-      minRefreshSeconds: 45
+      minRefreshSeconds: 90
     }
   }
 };
