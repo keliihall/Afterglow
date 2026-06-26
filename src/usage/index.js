@@ -47,6 +47,7 @@ async function loadUsageSnapshot() {
     generatedAt: new Date().toISOString(),
     refreshSeconds: config.refreshSeconds,
     display: config.display,
+    size: config.size,
     configPath: CONFIG_FILE,
     configError: config.configError || null,
     providers

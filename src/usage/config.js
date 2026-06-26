@@ -11,12 +11,18 @@ const CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
 //   "claude" 仅显示 Claude
 const DISPLAY_MODES = ["all", "codex", "claude"];
 
+// size: 展示档位 —— 小(仅关键数字)/中(默认，进度条+重置)/大(更大字号+状态明细)
+const SIZE_MODES = ["small", "medium", "large"];
+
 const DEFAULT_CONFIG = {
   refreshSeconds: 20,
   display: "all",
+  size: "medium",
   providers: {
     codex: {
       enabled: true,
+      // live: 实时账号用量（直连 /wham/usage）。默认开启；置 false 仅用会话日志。
+      live: true,
       sessionDir: "~/.codex/sessions",
       maxFiles: 80,
       maxAgeDays: 8
@@ -71,6 +77,9 @@ function normalizeConfig(config) {
   if (!DISPLAY_MODES.includes(config.display)) {
     config.display = DEFAULT_CONFIG.display;
   }
+  if (!SIZE_MODES.includes(config.size)) {
+    config.size = DEFAULT_CONFIG.size;
+  }
   // refreshSeconds: 0 (or negative) means "no auto-refresh"; otherwise min 5s.
   const seconds = Number(config.refreshSeconds);
   if (!Number.isFinite(seconds)) {
@@ -93,6 +102,7 @@ module.exports = {
   CONFIG_FILE,
   DEFAULT_CONFIG,
   DISPLAY_MODES,
+  SIZE_MODES,
   loadConfig,
   saveConfig
 };

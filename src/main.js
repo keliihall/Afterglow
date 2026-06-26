@@ -1,7 +1,7 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, shell, nativeImage, screen } = require("electron");
 const path = require("node:path");
 const { loadUsageSnapshot } = require("./usage");
-const { loadConfig, saveConfig, CONFIG_FILE } = require("./usage/config");
+const { loadConfig, saveConfig, SIZE_MODES, CONFIG_FILE } = require("./usage/config");
 
 // Only one instance — a second launch should surface the existing widgets
 // instead of spawning a duplicate tray icon and window set.
@@ -27,11 +27,17 @@ function createTrayIcon() {
   image.setTemplateImage(true);
   return image;
 }
-const PANEL_WIDTH = 212;
 const WINDOW_INSET = 3;
-const WINDOW_WIDTH = PANEL_WIDTH + WINDOW_INSET * 2;
-const MIN_PANEL_HEIGHT = 40;
-const MAX_PANEL_HEIGHT = 360;
+// 三档展示宽度（小/中/大）。中=212 与原版一致。
+const SIZE_PANEL_WIDTH = { small: 166, medium: 212, large: 248 };
+const MIN_WINDOW_WIDTH = SIZE_PANEL_WIDTH.small + WINDOW_INSET * 2;
+const MAX_WINDOW_WIDTH = SIZE_PANEL_WIDTH.large + WINDOW_INSET * 2;
+function currentWindowWidth() {
+  const size = loadConfig().size;
+  return (SIZE_PANEL_WIDTH[size] || SIZE_PANEL_WIDTH.medium) + WINDOW_INSET * 2;
+}
+const MIN_PANEL_HEIGHT = 32;
+const MAX_PANEL_HEIGHT = 400;
 const DEFAULT_PANEL_HEIGHT = 120;
 const ALWAYS_ON_TOP_LEVEL = "screen-saver";
 const ALL_SPACES_OPTIONS = {
@@ -42,11 +48,12 @@ const ALL_SPACES_OPTIONS = {
 const REFRESH_PRESETS = [10, 20, 30, 60, 0];
 const refreshLabel = (seconds) => (seconds > 0 ? `${seconds} 秒` : "不刷新");
 const DISPLAY_LABELS = { all: "全部显示", codex: "仅 Codex", claude: "仅 Claude" };
+const SIZE_LABELS = { small: "小", medium: "中", large: "大" };
 
 function bottomRightBounds(display, windowHeight) {
   const bounds = display.workArea;
   return {
-    x: Math.round(bounds.x + bounds.width - WINDOW_WIDTH - 28 + WINDOW_INSET),
+    x: Math.round(bounds.x + bounds.width - currentWindowWidth() - 28 + WINDOW_INSET),
     y: Math.round(bounds.y + bounds.height - windowHeight - 72 + WINDOW_INSET)
   };
 }
@@ -65,7 +72,7 @@ function displayForWindow(win) {
 function clampToWorkArea(win, x, y, height) {
   const wa = displayForWindow(win).workArea;
   return {
-    x: Math.min(Math.max(x, wa.x), wa.x + wa.width - WINDOW_WIDTH),
+    x: Math.min(Math.max(x, wa.x), wa.x + wa.width - currentWindowWidth()),
     y: Math.min(Math.max(y, wa.y), wa.y + wa.height - height)
   };
 }
@@ -78,11 +85,12 @@ function resizeWidget(win, panelHeight) {
   if (!win || win.isDestroyed() || !Number.isFinite(panelHeight)) return;
   const clamped = Math.min(MAX_PANEL_HEIGHT, Math.max(MIN_PANEL_HEIGHT, Math.round(panelHeight)));
   const windowHeight = clamped + WINDOW_INSET * 2;
-  const [, currentHeight] = win.getSize();
-  if (currentHeight === windowHeight) return;
+  const windowWidth = currentWindowWidth();
+  const [currentWidth, currentHeight] = win.getSize();
+  if (currentWidth === windowWidth && currentHeight === windowHeight) return;
   const [x, y] = win.getPosition();
   const anchoredY = y + (currentHeight - windowHeight); // keep bottom edge fixed
-  win.setSize(WINDOW_WIDTH, windowHeight, false);
+  win.setSize(windowWidth, windowHeight, false);
   const { x: nx, y: ny } = clampToWorkArea(win, x, anchoredY, windowHeight);
   win.setPosition(nx, ny, false);
 }
@@ -165,6 +173,15 @@ function updateConfig(patch) {
   const current = loadConfig();
   const next = saveConfig({ ...current, ...patch });
   scheduleRefresh();
+  // 立即按新档位调整窗口宽度（高度随后由渲染回报的内容高度自适应）。
+  const width = currentWindowWidth();
+  for (const win of visibleWindows()) {
+    const [, h] = win.getSize();
+    const [x, y] = win.getPosition();
+    win.setSize(width, h, false);
+    const { x: nx, y: ny } = clampToWorkArea(win, x, y, h);
+    win.setPosition(nx, ny, false);
+  }
   tray?.setContextMenu(buildTrayMenu());
   pushSnapshot();
   return next;
@@ -204,6 +221,15 @@ function buildTrayMenu() {
         click: () => updateConfig({ refreshSeconds: seconds })
       }))
     },
+    {
+      label: "显示大小",
+      submenu: SIZE_MODES.map((size) => ({
+        label: SIZE_LABELS[size] || size,
+        type: "radio",
+        checked: config.size === size,
+        click: () => updateConfig({ size })
+      }))
+    },
     { type: "separator" },
     {
       label: "窗口置顶",
@@ -229,10 +255,10 @@ function createWindow(display) {
   const win = new BrowserWindow({
     x,
     y,
-    width: WINDOW_WIDTH,
+    width: currentWindowWidth(),
     height: initialHeight,
-    minWidth: WINDOW_WIDTH,
-    maxWidth: WINDOW_WIDTH,
+    minWidth: MIN_WINDOW_WIDTH,
+    maxWidth: MAX_WINDOW_WIDTH,
     frame: false,
     transparent: true,
     resizable: false,

@@ -309,3 +309,159 @@ body {
   font-size: 9px;
   line-height: 1;
 }
+
+/* Per-provider detail line — only shown in the "large" tier. */
+.pmeta {
+  display: none;
+  font-size: 8.5px;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.25;
+  margin-top: 4px;
+  white-space: normal;
+}
+
+.provider.stale .pmeta {
+  color: var(--amber);
+}
+
+/* ============ 小档：仅关键数字，最紧凑（隐藏顶栏/进度条/重置/套餐徽标，指标并排） ============ */
+[data-size="small"] .shell {
+  padding: 6px 9px;
+}
+[data-size="small"] .topbar {
+  display: none;
+}
+[data-size="small"] .providers {
+  gap: 5px;
+}
+[data-size="small"] .provider {
+  gap: 8px;
+}
+[data-size="small"] .provider + .provider {
+  padding-top: 5px;
+}
+[data-size="small"] .brand {
+  width: 18px;
+}
+[data-size="small"] .logo {
+  height: 14px;
+}
+[data-size="small"] .logo--claude {
+  height: 15px;
+}
+[data-size="small"] .plan {
+  display: none;
+}
+/* 仅显示 5h / 1w 两个主窗口；隐藏 scoped 等附加行（如 Claude 的 sonnet 行）。
+   用 .meter.meter--extra 提高特异性，压过下方 [data-size=small] .meter{display:flex}。 */
+[data-size="small"] .meter.meter--extra,
+[data-size="small"] .pmeta {
+  display: none;
+}
+/* 两个指标左对齐紧凑排列；窗口宽度收窄到刚好容纳内容，避免中间/右侧空白。 */
+[data-size="small"] .side {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 10px;
+}
+[data-size="small"] .meter {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 0;
+  flex: 0 0 auto; /* 不被压缩，避免内部标签被裁 */
+}
+[data-size="small"] .meter + .meter {
+  margin-top: 0;
+}
+[data-size="small"] .bar,
+[data-size="small"] .reset {
+  display: none;
+}
+/* 标签不收缩、不裁切，保证 "5h"/"1w" 完整显示（此前 overflow:hidden + flex 收缩裁掉了 h/w）。 */
+[data-size="small"] .label {
+  font-size: 9.5px;
+  flex: 0 0 auto;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+/* 固定数值槽宽：88% 与 100% 占位一致 → 内容宽度恒定、不换行，便于把窗口收到刚好。 */
+[data-size="small"] .value {
+  font-size: 12px;
+  font-weight: 800;
+  min-width: 36px;
+  flex: 0 0 auto;
+  text-align: left;
+}
+
+/* ============ 大档：竖向卡片 —— 顶部品牌行 + 整行大进度条 + 每源详情行 ============ */
+[data-size="large"] .shell {
+  padding: 12px 14px;
+}
+[data-size="large"] .providers {
+  gap: 12px;
+}
+/* 由"左 logo 右指标"改为竖向：品牌行在上，指标整行铺开在下，与"中"档明显区分。 */
+[data-size="large"] .provider {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 9px;
+}
+[data-size="large"] .provider + .provider {
+  padding-top: 11px;
+}
+[data-size="large"] .brand {
+  flex-direction: row;
+  width: auto;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+}
+[data-size="large"] .logo {
+  height: 22px;
+}
+[data-size="large"] .logo--claude {
+  height: 23px;
+}
+[data-size="large"] .plan {
+  font-size: 8.5px;
+  padding: 1.5px 5px;
+}
+[data-size="large"] .appname {
+  font-size: 10px;
+}
+[data-size="large"] .side {
+  width: 100%;
+  gap: 9px;
+}
+[data-size="large"] .meter {
+  grid-template-columns: 46px 1fr 46px 66px;
+  gap: 9px;
+}
+[data-size="large"] .meter + .meter {
+  margin-top: 9px;
+}
+[data-size="large"] .label {
+  font-size: 12px;
+}
+[data-size="large"] .value {
+  font-size: 13px;
+  font-weight: 820;
+}
+[data-size="large"] .reset {
+  font-size: 11px;
+  grid-template-columns: 13px 1fr;
+}
+[data-size="large"] .bar {
+  height: 9px;
+}
+[data-size="large"] .pmeta {
+  display: block;
+  font-size: 10px;
+  margin-top: 1px;
+}

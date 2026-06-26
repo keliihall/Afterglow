@@ -59,8 +59,10 @@ function renderMeter(window) {
   const hasValue = Number.isFinite(window?.remainingPercent);
   const remaining = hasValue ? Math.max(0, Math.min(100, window.remainingPercent)) : 0;
   const level = levelClass(hasValue ? remaining : NaN);
+  // 仅 5h/1w 为主窗口；其余（如 Claude 的按模型 scoped 窗口）标记为 extra，"小"档隐藏。
+  const extra = window?.id === "5h" || window?.id === "1w" ? "" : " meter--extra";
   return `
-    <div class="meter">
+    <div class="meter${extra}">
       <span class="label">${escapeHtml(window?.label ?? "--")}</span>
       <span class="bar"><span class="fill ${level}" style="--value:${remaining}"></span></span>
       <span class="value">${formatPercent(window?.remainingPercent)}</span>
@@ -89,6 +91,10 @@ function renderProvider(provider) {
   }
   const stale = provider.status === "stale";
   const title = provider.statusText ? ` title="${escapeHtml(provider.statusText)}"` : "";
+  // 详情行（仅"大"档显示）：状态/口径/新鲜度文案，平时只在 hover 出现。
+  const meta = provider.statusText
+    ? `<div class="pmeta">${escapeHtml(provider.statusText)}</div>`
+    : "";
 
   return `
     <section class="provider${stale ? " stale" : ""}"${title}>
@@ -98,6 +104,7 @@ function renderProvider(provider) {
       </div>
       <div class="side">
         ${windows.map(renderMeter).join("")}
+        ${meta}
       </div>
     </section>`;
 }
@@ -133,6 +140,8 @@ function renderRefresh(snapshot) {
 }
 
 function renderSnapshot(snapshot) {
+  // 档位驱动 CSS：小/中/大。默认中。
+  document.body.dataset.size = snapshot?.size || "medium";
   const providers = Array.isArray(snapshot?.providers) ? snapshot.providers : [];
   if (providers.length === 0) {
     appEl.innerHTML = `<section class="provider"><div class="note">无可显示内容</div></section>`;
